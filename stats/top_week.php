@@ -85,7 +85,124 @@ try {
 							</h1>
 						</div>
 					</div>
-					<?PHP if($count_ids['count'] < 29) {  echo $lang['stix0048'],' (',$count_ids['count'],'/29)'; } else { ?>
+
+					<?PHP
+					if($count_ids['count'] < 29) { echo $lang['stix0048'],' (',$count_ids['count'],'/29)'; } else {
+						$next_draw_ts_ms = 0;
+						$next_draw_human = $last_draw_human = '';
+
+						if (isset($addons_config['winner_toplist_active']['value']) && $addons_config['winner_toplist_active']['value'] === '1') {
+							$winner = $mysqlcon->query("SELECT `uuid`,`name`,`timestamp`,`count`,`idle` from `$dbname`.`addon_winner_toplist` WHERE `award`=1 ORDER BY `timestamp` DESC LIMIT 1")->fetch();
+							
+							$winner = $winner ?: ['uuid'=>null,'name'=>null,'timestamp'=>null,'count'=>0,'idle'=>0];
+
+							$cfgDowRaw  = isset($addons_config['winner_toplist_day_week']['value']) ? $addons_config['winner_toplist_day_week']['value'] : '01';
+							$cfgTimeRaw = isset($addons_config['winner_toplist_time_week']['value']) ? $addons_config['winner_toplist_time_week']['value'] : '00:00';
+
+							$cfgDow = (int)$cfgDowRaw;
+							if ($cfgDow < 1 || $cfgDow > 7) $cfgDow = 1;
+
+							$cfgTimeRaw = trim($cfgTimeRaw);
+							if (!preg_match('/^([01]\d|2[0-3]):([0-5]\d)$/', $cfgTimeRaw, $m)) {
+								$m = [null, '00', '00'];
+							}
+							$targetHour = (int)$m[1];
+							$targetMin  = (int)$m[2];
+
+							$nowDt  = new DateTime('now');
+							$target = new DateTime('now');
+							$target->setTime($targetHour, $targetMin, 0);
+
+							$nowDow = (int)$nowDt->format('N');
+							$daysAhead = $cfgDow - $nowDow;
+							if ($daysAhead < 0) $daysAhead += 7;
+
+							if ($daysAhead > 0) {
+								$target->modify("+{$daysAhead} days");
+							} else {
+								if ($target <= $nowDt) {
+									$target->modify("+7 days");
+								}
+							}
+							$next_draw_ts_ms = ((int)$target->format('U')) * 1000;
+							$next_draw_human = $target->format('d.m.Y H:i');
+							$last_draw = new DateTime('@' . (int)$winner['timestamp']);
+							$last_draw->setTimezone(new DateTimeZone(date_default_timezone_get()));
+							$last_draw_human = $last_draw->format('d.m.Y H:i');
+					?>
+
+					<div class="row hero-eq">
+						<div class="col-lg-8">
+							<div class="panel panel-primary winner-banner">
+								<div class="panel-body">
+									<div class="row">
+										<div class="col-xs-2 text-center">
+											<div class="winner-icon"><i class="fa fa-chess-queen"></i></div>
+										</div>
+										<div class="col-xs-10">
+											<div class="winner-title"><?PHP echo $lang['addonchtoplzz101']; ?></div>
+											<div class="winner-name">
+												<span title=<?PHP echo '"',$client_data[0]['title'],'"'; ?>>
+													<?PHP echo $winner['name']; ?>
+												</span>
+											</div>
+											<div class="winner-meta">
+												<?PHP
+													if($winner['count'] < 3600) {
+														echo sprintf($texttime, round(($winner['count']/60)), $lang['sttw0015']);
+													} else {
+														echo sprintf($texttime, round(($winner['count']/3600)), $lang['sttw0014']);
+													}
+												?>
+											</div>
+										</div>
+									</div>
+									<div class="cd-sub">
+										<?PHP echo $lang['addonchtoplzz102'] , ': ' , htmlspecialchars($last_draw_human); ?>
+									</div>
+								</div>
+							</div>
+						</div>
+
+						<div class="col-lg-4">
+							<div class="panel panel-default countdown-panel" id="countdownPanel">
+								<div class="panel-body">
+									<div class="countdown-title"><?PHP echo $lang['addonchtoplzz103']; ?></div>
+									<div class="cd-grid">
+										<div class="cd-cell">
+											<div class="cd-box">
+												<div class="cd-num" id="cd_days">0</div>
+												<div class="cd-lbl"><?PHP echo $lang['time_day']; ?></div>
+											</div>
+										</div>
+										<div class="cd-cell">
+											<div class="cd-box">
+												<div class="cd-num" id="cd_hours">00</div>
+												<div class="cd-lbl"><?PHP echo $lang['time_hour']; ?></div>
+											</div>
+										</div>
+										<div class="cd-cell">
+											<div class="cd-box">
+												<div class="cd-num" id="cd_mins">00</div>
+												<div class="cd-lbl"><?PHP echo $lang['time_min']; ?></div>
+											</div>
+										</div>
+										<div class="cd-cell">
+											<div class="cd-box">
+												<div class="cd-num" id="cd_secs">00</div>
+												<div class="cd-lbl"><?PHP echo $lang['time_sec']; ?></div>
+											</div>
+										</div>
+									</div>
+									<div class="cd-sub">
+										<?PHP echo $lang['addonchtoplzz104'] , ': ' , htmlspecialchars($next_draw_human); ?>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+					<?PHP } ?>
+
 					<div class="row">
 						<div class="col-lg-4 col-lg-offset-4">
 							<div class="panel panel-primary">
@@ -105,6 +222,7 @@ try {
 							</div>
 						</div>
 					</div>
+
 					<div class="row">
 						<div class="col-lg-4 col-lg-offset-2">
 							<div class="panel panel-green">
@@ -123,6 +241,7 @@ try {
 								</div>
 							</div>
 						</div>
+
 						<div class="col-lg-4">
 							<div class="panel panel-yellow">
 								<div class="panel-heading">
@@ -141,6 +260,7 @@ try {
 							</div>
 						</div>
 					</div>
+
 					<div class="row">
 						<div class="col-lg-4">
 							<div class="panel panel-red">
@@ -157,6 +277,7 @@ try {
 								</div>
 							</div>
 						</div>
+
 						<div class="col-lg-4">
 							<div class="panel panel-red">
 								<div class="panel-heading">
@@ -172,6 +293,7 @@ try {
 								</div>
 							</div>
 						</div>
+
 						<div class="col-lg-4">
 							<div class="panel panel-red">
 								<div class="panel-heading">
@@ -188,6 +310,7 @@ try {
 							</div>
 						</div>
 					</div>
+
 					<div class="row">
 						<div class="col-lg-3">
 							<div class="panel panel-red">
@@ -207,6 +330,7 @@ try {
 								</div>
 							</div>
 						</div>
+
 						<div class="col-lg-3">
 							<div class="panel panel-red">
 								<div class="panel-heading">
@@ -225,6 +349,7 @@ try {
 								</div>
 							</div>
 						</div>
+
 						<div class="col-lg-3">
 							<div class="panel panel-red">
 								<div class="panel-heading">
@@ -243,6 +368,7 @@ try {
 								</div>
 							</div>
 						</div>
+
 						<div class="col-lg-3">
 							<div class="panel panel-red">
 								<div class="panel-heading">
@@ -262,54 +388,65 @@ try {
 							</div>
 						</div>
 					</div>
+
 					<div class="row">
 						<div class="col-lg-12">
 							<h2><?PHP echo $lang['sttw0004']; ?></h2>
+
 							<h4>#1 <?PHP echo $client_data[0]['name'] ?><?PHP echo ($client_data[0]['online'] == '1') ? ' (Status: <span class="text-success">'.$lang['stix0024'].'</span>)' : ' (Status: <span class="text-danger">'.$lang['stix0025'].'</span>)' ?></h4>
 							<div class="progress">
 								<div class="progress-bar progress-bar-striped <?PHP echo ($client_data[0]['online'] == '1') ? 'active' : '' ?>" role="progressbar" aria-valuenow="100" aria-valuemin="0" aria-valuemax="100" style="min-width: 20em;width: 100%;"><?PHP echo round(($client_data[0]['count']/3600)) .'&nbsp;'.$lang['sttw0005']?>
 								</div>
 							</div>
+
 							<h4>#2 <?PHP echo $client_data[1]['name'] ?><?PHP echo ($client_data[1]['online'] == '1') ? ' (Status: <span class="text-success">'.$lang['stix0024'].'</span>)' : ' (Status: <span class="text-danger">'.$lang['stix0025'].'</span>)' ?></h4>
 							<div class="progress">
 								<div class="progress-bar progress-bar-success progress-bar-striped <?PHP echo ($client_data[1]['online'] == '1') ? 'active' : '' ?>" role="progressbar" aria-valuenow="<?PHP echo get_percentage($client_data[0]['count'], $client_data[1]['count']) ?>" aria-valuemin="0" aria-valuemax="100" style="min-width: 20em;width: <?PHP echo get_percentage($client_data[0]['count'], $client_data[1]['count']) ?>%"><?PHP echo sprintf($lang['sttw0006'], round(($client_data[1]['count']/3600)), get_percentage($client_data[0]['count'], $client_data[1]['count'])); ?>
 								</div>
 							</div>
+
 							<h4>#3 <?PHP echo $client_data[2]['name'] ?><?PHP echo ($client_data[2]['online'] == '1') ? ' (Status: <span class="text-success">'.$lang['stix0024'].'</span>)' : ' (Status: <span class="text-danger">'.$lang['stix0025'].'</span>)' ?></h4>
 							<div class="progress">
 								<div class="progress-bar progress-bar-warning progress-bar-striped <?PHP echo ($client_data[2]['online'] == '1') ? 'active' : '' ?>" role="progressbar" aria-valuenow="<?PHP echo get_percentage($client_data[0]['count'], $client_data[2]['count']) ?>" aria-valuemin="0" aria-valuemax="100" style="min-width: 20em;width: <?PHP echo get_percentage($client_data[0]['count'], $client_data[2]['count']) ?>%"><?PHP echo sprintf($lang['sttw0006'], round(($client_data[2]['count']/3600)), get_percentage($client_data[0]['count'], $client_data[2]['count'])); ?>
 								</div>
 							</div>
+
 							<h4>#4 <?PHP echo $client_data[3]['name'] ?><?PHP echo ($client_data[3]['online'] == '1') ? ' (Status: <span class="text-success">'.$lang['stix0024'].'</span>)' : ' (Status: <span class="text-danger">'.$lang['stix0025'].'</span>)' ?></h4>
 							<div class="progress">
 								<div class="progress-bar progress-bar-danger progress-bar-striped <?PHP echo ($client_data[3]['online'] == '1') ? 'active' : '' ?>" role="progressbar" aria-valuenow="<?PHP echo get_percentage($client_data[0]['count'], $client_data[3]['count']) ?>" aria-valuemin="0" aria-valuemax="100" style="min-width: 20em;width: <?PHP echo get_percentage($client_data[0]['count'], $client_data[3]['count']) ?>%"><?PHP echo sprintf($lang['sttw0006'], round(($client_data[3]['count']/3600)), get_percentage($client_data[0]['count'], $client_data[3]['count'])); ?>
 								</div>
 							</div>
+
 							<h4>#5 <?PHP echo $client_data[4]['name'] ?><?PHP echo ($client_data[4]['online'] == '1') ? ' (Status: <span class="text-success">'.$lang['stix0024'].'</span>)' : ' (Status: <span class="text-danger">'.$lang['stix0025'].'</span>)' ?></h4>
 							<div class="progress">
 								<div class="progress-bar progress-bar-striped <?PHP echo ($client_data[4]['online'] == '1') ? 'active' : '' ?>" role="progressbar" aria-valuenow="<?PHP echo get_percentage($client_data[0]['count'], $client_data[4]['count']) ?>" aria-valuemin="0" aria-valuemax="100" style="min-width: 20em;width: <?PHP echo get_percentage($client_data[0]['count'], $client_data[4]['count']) ?>%"><?PHP echo sprintf($lang['sttw0006'], round(($client_data[4]['count']/3600)), get_percentage($client_data[0]['count'], $client_data[4]['count'])); ?>
 								</div>
 							</div>
+
 							<h4>#6 <?PHP echo $client_data[5]['name'] ?><?PHP echo ($client_data[5]['online'] == '1') ? ' (Status: <span class="text-success">'.$lang['stix0024'].'</span>)' : ' (Status: <span class="text-danger">'.$lang['stix0025'].'</span>)' ?></h4>
 							<div class="progress">
 								<div class="progress-bar progress-bar-success progress-bar-striped <?PHP echo ($client_data[5]['online'] == '1') ? 'active' : '' ?>" role="progressbar" aria-valuenow="<?PHP echo get_percentage($client_data[0]['count'], $client_data[5]['count']) ?>" aria-valuemin="0" aria-valuemax="100" style="min-width: 20em;width: <?PHP echo get_percentage($client_data[0]['count'], $client_data[5]['count']) ?>%"><?PHP echo sprintf($lang['sttw0006'], round(($client_data[5]['count']/3600)), get_percentage($client_data[0]['count'], $client_data[5]['count'])); ?>
 								</div>
 							</div>
+
 							<h4>#7 <?PHP echo $client_data[6]['name'] ?><?PHP echo ($client_data[6]['online'] == '1') ? ' (Status: <span class="text-success">'.$lang['stix0024'].'</span>)' : ' (Status: <span class="text-danger">'.$lang['stix0025'].'</span>)' ?></h4>
 							<div class="progress">
 								<div class="progress-bar progress-bar-warning progress-bar-striped <?PHP echo ($client_data[6]['online'] == '1') ? 'active' : '' ?>" role="progressbar" aria-valuenow="<?PHP echo get_percentage($client_data[0]['count'], $client_data[6]['count']) ?>" aria-valuemin="0" aria-valuemax="100" style="min-width: 20em;width: <?PHP echo get_percentage($client_data[0]['count'], $client_data[6]['count']) ?>%"><?PHP echo sprintf($lang['sttw0006'], round(($client_data[6]['count']/3600)), get_percentage($client_data[0]['count'], $client_data[6]['count'])); ?>
 								</div>
 							</div>
+
 							<h4>#8 <?PHP echo $client_data[7]['name'] ?><?PHP echo ($client_data[7]['online'] == '1') ? ' (Status: <span class="text-success">'.$lang['stix0024'].'</span>)' : ' (Status: <span class="text-danger">'.$lang['stix0025'].'</span>)' ?></h4>
 							<div class="progress">
 								<div class="progress-bar progress-bar-danger progress-bar-striped <?PHP echo ($client_data[7]['online'] == '1') ? 'active' : '' ?>" role="progressbar" aria-valuenow="<?PHP echo get_percentage($client_data[0]['count'], $client_data[7]['count']) ?>" aria-valuemin="0" aria-valuemax="100" style="min-width: 20em;width: <?PHP echo get_percentage($client_data[0]['count'], $client_data[7]['count']) ?>%"><?PHP echo sprintf($lang['sttw0006'], round(($client_data[7]['count']/3600)), get_percentage($client_data[0]['count'], $client_data[7]['count'])); ?>
 								</div>
 							</div>
+
 							<h4>#9 <?PHP echo $client_data[8]['name'] ?><?PHP echo ($client_data[8]['online'] == '1') ? ' (Status: <span class="text-success">'.$lang['stix0024'].'</span>)' : ' (Status: <span class="text-danger">'.$lang['stix0025'].'</span>)' ?></h4>
 							<div class="progress">
 								<div class="progress-bar progress-bar-striped <?PHP echo ($client_data[8]['online'] == '1') ? 'active' : '' ?>" role="progressbar" aria-valuenow="<?PHP echo get_percentage($client_data[0]['count'], $client_data[8]['count']) ?>" aria-valuemin="0" aria-valuemax="100" style="min-width: 20em;width: <?PHP echo get_percentage($client_data[0]['count'], $client_data[8]['count']) ?>%"><?PHP echo sprintf($lang['sttw0006'], round(($client_data[8]['count']/3600)), get_percentage($client_data[0]['count'], $client_data[8]['count'])); ?>
 								</div>
 							</div>
+
 							<h4>#10 <?PHP echo $client_data[9]['name'] ?><?PHP echo ($client_data[9]['online'] == '1') ? ' (Status: <span class="text-success">'.$lang['stix0024'].'</span>)' : ' (Status: <span class="text-danger">'.$lang['stix0025'].'</span>)' ?></h4>
 							<div class="progress">
 								<div class="progress-bar progress-bar-success progress-bar-striped <?PHP echo ($client_data[9]['online'] == '1') ? 'active' : '' ?>" role="progressbar" aria-valuenow="<?PHP echo get_percentage($client_data[0]['count'], $client_data[9]['count']) ?>" aria-valuemin="0" aria-valuemax="100" style="min-width: 20em;width: <?PHP echo get_percentage($client_data[0]['count'], $client_data[9]['count']) ?>%"><?PHP echo sprintf($lang['sttw0006'], round(($client_data[9]['count']/3600)), get_percentage($client_data[0]['count'], $client_data[9]['count'])); ?>
@@ -317,6 +454,7 @@ try {
 							</div>
 						</div>
 					</div>
+
 					<div class="row">
 						<div class="col-lg-12">
 							<h2><?PHP echo $lang['sttw0007']; ?></h2>
@@ -330,8 +468,8 @@ try {
 									</div>
 								</div>
 							</div>
-							<div class="col-lg-3">
 
+							<div class="col-lg-3">
 								<div class="panel panel-green">
 									<div class="panel-heading">
 										<h3 class="panel-title"><i class="fas fa-chart-bar"></i><span class="item-margin"><?PHP echo $lang['sttw0009']; ?></span></h3>
@@ -341,8 +479,8 @@ try {
 									</div>
 								</div>
 							</div>
-							<div class="col-lg-3">
 
+							<div class="col-lg-3">
 								<div class="panel panel-yellow">
 									<div class="panel-heading">
 										<h3 class="panel-title"><i class="fas fa-chart-bar"></i><span class="item-margin"><?PHP echo $lang['sttw0010']; ?></span></h3>
@@ -352,6 +490,7 @@ try {
 									</div>
 								</div>
 							</div>
+
 						</div>
 					</div>
 					<?PHP } ?>
@@ -397,6 +536,66 @@ Morris.Donut({
   ],
   colors: [donut_nation_color_1, donut_nation_color_2]
 });
+
+(function($){
+	var targetMs = <?PHP echo (int)$next_draw_ts_ms; ?>;
+	var $panel = $('#countdownPanel');
+
+	function pad2(n){
+		return (n < 10 ? '0' : '') + n;
+	}
+
+	function updateCountdown(){
+		if(!targetMs || targetMs <= 0){
+			return;
+		}
+
+		var now  = Date.now();
+		var diff = targetMs - now;
+
+		if(diff <= 0){
+			$('#cd_days').text('0');
+			$('#cd_hours').text('00');
+			$('#cd_mins').text('00');
+			$('#cd_secs').text('00');
+
+			$panel.removeClass('boost');
+			return;
+		}
+
+		// Gold-Boost bei < 1 Stunde
+		if(diff <= 11113600 * 1000){
+			$panel.addClass('boost');
+		} else {
+			$panel.removeClass('boost');
+		}
+
+		var totalSeconds = Math.floor(diff / 1000);
+
+		var days  = Math.floor(totalSeconds / 86400);
+		totalSeconds -= days * 86400;
+
+		var hours = Math.floor(totalSeconds / 3600);
+		totalSeconds -= hours * 3600;
+
+		var mins  = Math.floor(totalSeconds / 60);
+		var secs  = totalSeconds - mins * 60;
+
+		$('#cd_days').text(days);
+		$('#cd_hours').text(pad2(hours));
+		$('#cd_mins').text(pad2(mins));
+		$('#cd_secs').text(pad2(secs));
+	}
+
+	$(function(){
+		if(targetMs && targetMs > 0){
+			$panel.addClass('golden');
+
+			updateCountdown();
+			setInterval(updateCountdown, 1000);
+		}
+	});
+})(jQuery);
 		</script>
 	</body>
 	</html>

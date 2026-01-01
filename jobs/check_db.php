@@ -1,6 +1,6 @@
 <?PHP
 function check_db($mysqlcon,$lang,&$cfg,$dbname) {
-	$cfg['version_latest_available'] = '1.3.25-beta-3';
+	$cfg['version_latest_available'] = '1.3.25-beta-4';
 	enter_logfile(5,"Check Ranksystem database for updates...");
 
 	function check_double_cldbid($mysqlcon,$cfg,$dbname) {

@@ -1,175 +1,289 @@
 <?php
 function addon_winner_toplist(&$addons_config, $ts3, $mysqlcon, $cfg, $dbname, $lang, &$db_cache) {
 	$starttime = microtime(true);
-    $sqlexec = '';
-    $nowtime = time();
+	$sqlexec = '';
+	$nowtime = time();
 
-    if (!isset($addons_config['winner_toplist_active']['value']) || $addons_config['winner_toplist_active']['value'] !== '1') return;
+	if (!isset($addons_config['winner_toplist_active']['value']) || $addons_config['winner_toplist_active']['value'] !== '1') return;
 
-    $weekago  = (int)$db_cache['job_check']['last_snapshot_id']['timestamp'] - 28;
-    $monthago = (int)$db_cache['job_check']['last_snapshot_id']['timestamp'] - 120;
-    if ($weekago < 1)  $weekago  += 121;
-    if ($monthago < 1) $monthago += 121;
+	$weekDay = isset($addons_config['winner_toplist_day_week']['value']) ? (int)$addons_config['winner_toplist_day_week']['value'] : 0;
+	$weekTime = isset($addons_config['winner_toplist_time_week']['value']) ? trim($addons_config['winner_toplist_time_week']['value']) : '';
 
-    $weekDay  = isset($addons_config['winner_toplist_day_week']['value']) ? (int)$addons_config['winner_toplist_day_week']['value'] : 0;
-    $weekTime = isset($addons_config['winner_toplist_time_week']['value']) ? trim($addons_config['winner_toplist_time_week']['value']) : '';
+	$monthDay = isset($addons_config['winner_toplist_day_month']['value']) ? (int)$addons_config['winner_toplist_day_month']['value'] : 0;
+	$monthTime = isset($addons_config['winner_toplist_time_month']['value']) ? trim($addons_config['winner_toplist_time_month']['value']) : '';
 
-    $monthDay  = isset($addons_config['winner_toplist_day_month']['value']) ? (int)$addons_config['winner_toplist_day_month']['value'] : 0;
-    $monthTime = isset($addons_config['winner_toplist_time_month']['value']) ? trim($addons_config['winner_toplist_time_month']['value']) : '';
+	$periods = [];
 
-    $doWeek  = ($weekDay >= 1 && $weekDay <= 7 && is_valid_hhmm($weekTime)  && $nowtime >= compute_weekly_timestamp($weekDay, $weekTime));
-    $doMonth = ($monthDay >= 1 && $monthDay <= 31 && is_valid_hhmm($monthTime) && $nowtime >= compute_monthly_timestamp($monthDay, $monthTime));
+	$weekConfigured = ($weekDay >= 1 && $weekDay <= 7 && is_valid_hhmm($weekTime));
+	$monthConfigured = ($monthDay >= 1 && $monthDay <= 31 && is_valid_hhmm($monthTime));
 
-	if (!$doWeek && !$doMonth) return;
+	if ($weekConfigured) {
+		$weekCurrentTs  = compute_weekly_timestamp($weekDay, $weekTime, 0);
+		$weekPreviousTs = compute_weekly_timestamp($weekDay, $weekTime, -1);
+		$weekNextTs	 = compute_weekly_timestamp($weekDay, $weekTime, 1);
 
-	$weekStartTs  = strtotime('monday this week 00:00:00');
-	$monthStartTs = strtotime(date('Y-m-01 00:00:00'));
+		$periods[] = [
+			'key' => 'week_previous',
+			'award' => 1,
+			'periodTimestamp' => $weekPreviousTs,
+			'nextTimestamp' => $weekCurrentTs,
+			'lengthSnapshots' => 28,
+			'maxSeconds' => 691200,
+			'useLiveStats' => false,
+			'shouldProcess' => ($nowtime >= $weekPreviousTs)
+		];
 
-	if ($doWeek) {
-		$stmt = $mysqlcon->prepare("SELECT 1 FROM `$dbname`.`addon_winner_toplist` WHERE `award`=1 AND `timestamp`>=? LIMIT 1");
-		$stmt->execute([$weekStartTs]);
-		if ($stmt->fetchColumn()) $doWeek = false;
+		if ($nowtime >= $weekCurrentTs && $nowtime <= ($weekCurrentTs + 3600)) {
+			$periods[] = [
+				'key' => 'week_current',
+				'award' => 1,
+				'periodTimestamp' => $weekCurrentTs,
+				'nextTimestamp' => $weekNextTs,
+				'lengthSnapshots' => 28,
+				'maxSeconds' => 691200,
+				'useLiveStats' => true,
+				'shouldProcess' => true
+			];
+		}
 	}
-	if ($doMonth) {
-		$stmt = $mysqlcon->prepare("SELECT 1 FROM `$dbname`.`addon_winner_toplist` WHERE `award`=2 AND `timestamp`>=? LIMIT 1");
-		$stmt->execute([$monthStartTs]);
-		if ($stmt->fetchColumn()) $doMonth = false;
+
+	if ($monthConfigured) {
+		$monthCurrentTs = compute_monthly_timestamp($monthDay, $monthTime, 0);
+		$monthPreviousTs = compute_monthly_timestamp($monthDay, $monthTime, -1);
+		$monthNextTs = compute_monthly_timestamp($monthDay, $monthTime, 1);
+
+		$periods[] = [
+			'key' => 'month_previous',
+			'award' => 2,
+			'periodTimestamp' => $monthPreviousTs,
+			'nextTimestamp' => $monthCurrentTs,
+			'lengthSnapshots' => 120,
+			'maxSeconds' => 2764800,
+			'useLiveStats' => false,
+			'shouldProcess' => ($nowtime >= $monthPreviousTs)
+		];
+
+		if ($nowtime >= $monthCurrentTs && $nowtime <= ($monthCurrentTs + 3600)) {
+			$periods[] = [
+				'key' => 'month_current',
+				'award' => 2,
+				'periodTimestamp' => $monthCurrentTs,
+				'nextTimestamp' => $monthNextTs,
+				'lengthSnapshots' => 120,
+				'maxSeconds' => 2764800,
+				'useLiveStats' => true,
+				'shouldProcess' => true
+			];
+		}
 	}
 
-	enter_logfile(6,"addon_winner_toplist: doWeek:'{$doWeek}', doMonth:'{$doMonth}', weekDay:'{$weekDay}', monthDay:'{$monthDay}', weekTime:'{$weekTime}', monthTime:'{$monthTime}'");
-    if (!$doWeek && !$doMonth) return;
+	$periods = array_values(array_filter($periods, function ($period) {
+		return !empty($period['shouldProcess']);
+	}));
 
-    $userdata = $mysqlcon->query("SELECT `cldbid`,`id`,`count`,`idle` FROM `$dbname`.`user_snapshot` WHERE `id` IN ($weekago,$monthago)")->fetchAll(PDO::FETCH_GROUP | PDO::FETCH_ASSOC);
-    if ($userdata === false) {
-        enter_logfile(2, "calc_userstats 6:" . print_r($mysqlcon->errorInfo(), true));
-        return;
-    }
+	if (empty($periods)) return;
 
-    $byCldbid = [];
-    foreach ($db_cache['all_user'] as $uuid => $userstats) {
-        if (!empty($userstats['cldbid'])) {
-            $byCldbid[(int)$userstats['cldbid']] = ['uuid' => $uuid, 'userstats' => $userstats];
-        }
-    }
+	$logInfo = [];
+	foreach ($periods as $p) {
+		$logInfo[] = sprintf('%s@%s', $p['key'], $p['periodTimestamp']);
+	}
+	enter_logfile(6, "addon_winner_toplist periods: " . implode(', ', $logInfo));
 
-    $topWeek = ['cldbid' => null, 'value' => -1, 'active' => -1, 'count' => -1, 'idle' => -1];
-    $topMonth = ['cldbid' => null, 'value' => -1, 'active' => -1, 'count' => -1, 'idle' => -1];
+	$activePeriods = [];
+	foreach ($periods as $period) {
+		$rangeEnd = null;
+		if (isset($period['nextTimestamp'])) {
+			$rangeEnd = $period['nextTimestamp'];
+		} elseif ($period['key'] === 'week_previous' || $period['key'] === 'week_current') {
+			$rangeEnd = $period['periodTimestamp'] + 604800;
+		} else {
+			$rangeEnd = $period['periodTimestamp'] + 2678400;
+		}
 
-    foreach ($userdata as $cldbid => $rows) {
-		$cldbid = (int)$cldbid;
-        if (!isset($byCldbid[$cldbid])) continue;
+		$alreadyDone = period_already_processed($mysqlcon, $dbname, $period['award'], $period['periodTimestamp'], $rangeEnd);
+		if ($alreadyDone) continue;
 
-        $ids = array_column($rows, 'id');
+		$activePeriods[] = $period;
+	}
 
-        if ($doWeek) {
-            $keyweek = array_search($weekago, $ids);
-            if ($keyweek !== false && isset($rows[$keyweek]) && (int)$rows[$keyweek]['id'] === $weekago) {
+	if (empty($activePeriods)) return;
 
-                $count_week  = (int)$byCldbid[$cldbid]['userstats']['count'] - (int)$rows[$keyweek]['count'];
-                $idle_week   = (int)$byCldbid[$cldbid]['userstats']['idle']  - (int)$rows[$keyweek]['idle'];
-                $active_week = $count_week - $idle_week;
+	$byCldbid = [];
+	foreach ($db_cache['all_user'] as $uuid => $userstats) {
+		if (!empty($userstats['cldbid'])) {
+			$byCldbid[(int)$userstats['cldbid']] = ['uuid' => $uuid, 'userstats' => $userstats];
+		}
+	}
 
-                if ($count_week < 0 || $count_week < $idle_week || $count_week > 691200) $count_week = 0;
-                if ($idle_week  < 0 || $count_week < $idle_week || $idle_week  > 691200) $idle_week  = 0;
-                if ($active_week< 0 || $count_week < $idle_week || $active_week> 691200) $active_week= 0;
+	if (empty($byCldbid)) return;
 
-				if($cfg['rankup_time_assess_mode']=="0") {
-					$value_week=$count_week;
-				} else {
-					$value_week=$active_week;
-				}
-				if ($value_week > $topWeek['value'] || ($value_week === $topWeek['value'] && $cldbid < (int)$topWeek['cldbid'])) {
-                    $topWeek = [
-                        'cldbid' => $cldbid,
-                        'uuid' => $byCldbid[$cldbid]['uuid'],
-                        'value'  => $value_week,
-                        'active' => $active_week,
-                        'count'  => $count_week,
-                        'idle'   => $idle_week
-                    ];
-                }
-            }
-        }
+	$requiredSnapshotIds = [];
+	foreach ($activePeriods as $idx => $period) {
+		$offset = $period['useLiveStats'] ? 0 : compute_snapshot_offset($period['periodTimestamp'], $nowtime);
+		$activePeriods[$idx]['snapshotOffset'] = $offset;
 
-        if ($doMonth) {
-            $keymonth = array_search($monthago, $ids);
-            if ($keymonth !== false && isset($rows[$keymonth]) && (int)$rows[$keymonth]['id'] === $monthago) {
+		$baseId = shift_snapshot_id((int)$db_cache['job_check']['last_snapshot_id']['timestamp'], $offset);
+		$agoId  = shift_snapshot_id($baseId, $period['lengthSnapshots']);
 
-                $count_month  = (int)$byCldbid[$cldbid]['userstats']['count'] - (int)$rows[$keymonth]['count'];
-                $idle_month   = (int)$byCldbid[$cldbid]['userstats']['idle']  - (int)$rows[$keymonth]['idle'];
-                $active_month = $count_month - $idle_month;
+		$activePeriods[$idx]['baseSnapshotId'] = $baseId;
+		$activePeriods[$idx]['agoSnapshotId']  = $agoId;
 
-                if ($idle_month  < 0 || $count_month < $idle_month || $idle_month  > 2764800) $idle_month  = 0;
-                if ($count_month < 0 || $count_month < $idle_month || $count_month > 2764800) $count_month = 0;
-                if ($active_month< 0 || $count_month < $idle_month || $active_month> 2764800) $active_month= 0;
+		if ($period['useLiveStats']) {
+			$requiredSnapshotIds[] = $agoId;
+		} else {
+			$requiredSnapshotIds[] = $baseId;
+			$requiredSnapshotIds[] = $agoId;
+		}
+	}
 
-				if($cfg['rankup_time_assess_mode']=="0") {
-					$value_month=$count_month;
-				} else {
-					$value_month=$active_month;
-				}
-				if ($value_month > $topMonth['value'] || ($value_month === $topMonth['value'] && $cldbid < (int)$topMonth['cldbid'])) {
-                    $topMonth = [
-                        'cldbid' => $cldbid,
-                        'uuid' => $byCldbid[$cldbid]['uuid'],
-                        'value'  => $value_month,
-                        'active' => $active_month,
-                        'count'  => $count_month,
-                        'idle'   => $idle_month
-                    ];
-                }
-            }
-        }
-    }
+	$requiredSnapshotIds = array_values(array_unique($requiredSnapshotIds));
+
+	if (empty($requiredSnapshotIds)) return;
+
+	$idPlaceholders = implode(',', $requiredSnapshotIds);
+	$userdataRaw = $mysqlcon->query("SELECT `cldbid`,`id`,`count`,`idle` FROM `$dbname`.`user_snapshot` WHERE `id` IN ($idPlaceholders)")->fetchAll(PDO::FETCH_ASSOC);
+	if ($userdataRaw === false) {
+		enter_logfile(2, "calc_userstats 6:" . print_r($mysqlcon->errorInfo(), true));
+		return;
+	}
+
+	$userdata = [];
+	foreach ($userdataRaw as $row) {
+		$cldbid = (int)$row['cldbid'];
+		$sid = (int)$row['id'];
+		if (!isset($userdata[$cldbid])) $userdata[$cldbid] = [];
+		$userdata[$cldbid][$sid] = $row;
+	}
 
 	$allinsert = '';
-    if ($doWeek && $topWeek['cldbid'] !== null) {
-		enter_logfile(5,sprintf("addon_winner_toplist: Winner of the Week has been chosen. It's user '%s' (unique Client-ID: '%s').", $byCldbid[$topWeek['cldbid']]['userstats']['name'], $byCldbid[$topWeek['cldbid']]['uuid']));
-		$allinsert .= "('{$byCldbid[$topWeek['cldbid']]['uuid']}','{$byCldbid[$topWeek['cldbid']]['userstats']['name']}',{$nowtime},'1','{$topWeek['count']}','{$topWeek['idle']}'),";
-    }
 
-    if ($doMonth && $topMonth['cldbid'] !== null) {
-		enter_logfile(5,sprintf("addon_winner_toplist: Winner of the Month has been chosen. It's user '%s' (unique Client-ID: '%s').", $byCldbid[$topMonth['cldbid']]['userstats']['name'], $byCldbid[$topMonth['cldbid']]['uuid']));
-		$allinsert .= "('{$byCldbid[$topMonth['cldbid']]['uuid']}','{$byCldbid[$topMonth['cldbid']]['userstats']['name']}',{$nowtime},'2','{$topMonth['count']}','{$topMonth['idle']}'),";
-    }
+	foreach ($activePeriods as $period) {
+		enter_logfile(5,"period: ".print_r($period, true));
+		enter_logfile(5,"periodsconf: " . implode(', ', $logInfo));
+		$top = ['cldbid' => null, 'value' => -1, 'active' => -1, 'count' => -1, 'idle' => -1];
+
+		foreach ($byCldbid as $cldbid => $info) {
+			if ($period['useLiveStats']) {
+				$currentCount = (int)$info['userstats']['count'];
+				$currentIdle = (int)$info['userstats']['idle'];
+			} else {
+				if (!isset($userdata[$cldbid][$period['baseSnapshotId']])) continue;
+				$currentCount = (int)$userdata[$cldbid][$period['baseSnapshotId']]['count'];
+				$currentIdle = (int)$userdata[$cldbid][$period['baseSnapshotId']]['idle'];
+			}
+
+			if (!isset($userdata[$cldbid][$period['agoSnapshotId']])) continue;
+
+			$agoCount = (int)$userdata[$cldbid][$period['agoSnapshotId']]['count'];
+			$agoIdle = (int)$userdata[$cldbid][$period['agoSnapshotId']]['idle'];
+
+			$countDiff = $currentCount - $agoCount;
+			$idleDiff = $currentIdle - $agoIdle;
+			$activeDiff = $countDiff - $idleDiff;
+
+			if ($countDiff < 0 || $countDiff < $idleDiff || $countDiff > $period['maxSeconds']) $countDiff = 0;
+			if ($idleDiff  < 0 || $countDiff < $idleDiff || $idleDiff  > $period['maxSeconds']) $idleDiff  = 0;
+			if ($activeDiff< 0 || $countDiff < $idleDiff || $activeDiff> $period['maxSeconds']) $activeDiff= 0;
+
+			if($cfg['rankup_time_assess_mode']=="0") {
+				$value=$countDiff;
+			} else {
+				$value=$activeDiff;
+			}
+
+			if ($value > $top['value']) {
+				$top = [
+					'cldbid' => $cldbid,
+					'uuid'   => $info['uuid'],
+					'value'  => $value,
+					'active' => $activeDiff,
+					'count'  => $countDiff,
+					'idle'   => $idleDiff
+				];
+			}
+		}
+
+		if ($top['cldbid'] !== null) {
+			$userName = $byCldbid[$top['cldbid']]['userstats']['name'];
+			if ($period['award'] === 1) {
+				enter_logfile(5,sprintf("addon_winner_toplist: Winner of the Week (%s) has been chosen. It's user '%s' (unique Client-ID: '%s').", $period['key'], $userName, $byCldbid[$top['cldbid']]['uuid']));
+			} else {
+				enter_logfile(5,sprintf("addon_winner_toplist: Winner of the Month (%s) has been chosen. It's user '%s' (unique Client-ID: '%s').", $period['key'], $userName, $byCldbid[$top['cldbid']]['uuid']));
+			}
+
+			$allinsert .= "('{$byCldbid[$top['cldbid']]['uuid']}','{$userName}',{$period['periodTimestamp']},'{$period['award']}','{$top['count']}','{$top['idle']}'),";
+		}
+	}
 
 	if ($allinsert != '') {
 		$allinsert = substr($allinsert, 0, -1);
 		$sqlexec .= "INSERT INTO `$dbname`.`addon_winner_toplist` (`uuid`,`name`,`timestamp`,`award`,`count`,`idle`) VALUES $allinsert ON DUPLICATE KEY UPDATE `uuid`=VALUES(`uuid`),`timestamp`=VALUES(`timestamp`),`award`=VALUES(`award`);\n";
 	}
 
-    enter_logfile(5,"addon_winner_toplist needs: ".(number_format(round((microtime(true) - $starttime), 5),5)));
+	enter_logfile(5,"addon_winner_toplist needs: ".(number_format(round((microtime(true) - $starttime), 5),5)));
 	return($sqlexec);
 }
 
 function is_valid_hhmm($s) {
-    if (!is_string($s) || !preg_match('/^\d{1,2}:\d{2}$/', $s)) return false;
-    list($h, $m) = explode(':', $s, 2);
-    $h = (int)$h; $m = (int)$m;
-    return ($h >= 0 && $h <= 23 && $m >= 0 && $m <= 59);
+	if (!is_string($s) || !preg_match('/^\d{1,2}:\d{2}$/', $s)) return false;
+	list($h, $m) = explode(':', $s, 2);
+	$h = (int)$h; $m = (int)$m;
+
+	return ($h >= 0 && $h <= 23 && $m >= 0 && $m <= 59);
 }
 
-function compute_weekly_timestamp($day, $time) {
-    list($hh, $mm) = explode(':', $time, 2);
-    $hh = (int)$hh; $mm = (int)$mm;
+function compute_weekly_timestamp($day, $time, $weekOffset = 0) {
+	list($hh, $mm) = explode(':', $time, 2);
+	$hh = (int)$hh; $mm = (int)$mm;
 
-    $todayMidnight  = mktime(0, 0, 0, date('n'), date('j'), date('Y'));
-    $todayIso       = (int)date('N'); // 1..7
-    $mondayMidnight = $todayMidnight - (($todayIso - 1) * 86400);
+	$todayMidnight  = mktime(0, 0, 0, date('n'), date('j'), date('Y'));
+	$todayIso = (int)date('N'); // 1..7
+	$mondayMidnight = $todayMidnight - (($todayIso - 1) * 86400);
 
-    $targetMidnight = $mondayMidnight + (($day - 1) * 86400);
-    return $targetMidnight + ($hh * 3600) + ($mm * 60);
+	$targetMidnight = $mondayMidnight + (($day - 1 + ($weekOffset * 7)) * 86400);
+	return $targetMidnight + ($hh * 3600) + ($mm * 60);
 }
 
-function compute_monthly_timestamp($day, $time) {
-    list($hh, $mm) = explode(':', $time, 2);
-    $hh = (int)$hh; $mm = (int)$mm;
+function compute_monthly_timestamp($day, $time, $monthOffset = 0) {
+	list($hh, $mm) = explode(':', $time, 2);
+	$hh = (int)$hh; $mm = (int)$mm;
 
-    $year  = (int)date('Y');
-    $month = (int)date('n');
-    $daysInMonth = (int)date('t');
-    if ($day > $daysInMonth) $day = $daysInMonth;
+	$baseDate = new DateTime('first day of this month');
+	if ($monthOffset !== 0) {
+		$baseDate->modify(($monthOffset > 0 ? '+' : '').$monthOffset.' month');
+	}
 
-    return mktime($hh, $mm, 0, $month, $day, $year);
+	$year = (int)$baseDate->format('Y');
+	$month = (int)$baseDate->format('n');
+	$daysInMonth = (int)date('t', mktime(0, 0, 0, $month, 1, $year));
+	if ($day > $daysInMonth) $day = $daysInMonth;
+
+	return mktime($hh, $mm, 0, $month, $day, $year);
+}
+
+function shift_snapshot_id($id, $diff) {
+	$id = (int)$id - (int)$diff;
+	$id %= 121;
+	if ($id < 1) $id += 121;
+	return $id;
+}
+
+function compute_snapshot_offset($targetTimestamp, $nowtime) {
+	if ($nowtime <= $targetTimestamp) return 0;
+	return (int)floor(($nowtime - $targetTimestamp) / 21600);
+}
+
+function period_already_processed($mysqlcon, $dbname, $award, $startTs, $endTs) {
+	$stmt = $mysqlcon->prepare("SELECT 1 FROM `$dbname`.`addon_winner_toplist` WHERE `award`=? AND `timestamp`=? LIMIT 1");
+	$stmt->execute([$award, $startTs]);
+	if ($stmt->fetchColumn()) return true;
+
+	if ($endTs !== null) {
+		$stmt = $mysqlcon->prepare("SELECT 1 FROM `$dbname`.`addon_winner_toplist` WHERE `award`=? AND `timestamp`>=? AND `timestamp`<? LIMIT 1");
+		$stmt->execute([$award, $startTs, $endTs]);
+		if ($stmt->fetchColumn()) return true;
+	}
+
+	return false;
 }
 ?>

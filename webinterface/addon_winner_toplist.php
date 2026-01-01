@@ -108,28 +108,26 @@ try {
 							<div class="col-md-12">
 								<div class="panel panel-default">
 									<div class="panel-body">
-										<!-- #$addons_config['winner_toplist_day_week']['value'] Woche Tag 1-7 -->
 										<div class="form-group">
 											<label class="col-sm-2 control-label" data-toggle="modal" data-target="#addonchtoplzz001d"><?php echo $lang['addonchtoplzz001'],' (',$lang['addonchtoplzz006'],')'; ?><i class="help-hover fas fa-question-circle"></i></label>
 											<div class="col-sm-10">
-												<select class="selectpicker show-tick form-control" id="basic" name="channelinfo_toplist_modus">
+												<select class="selectpicker show-tick form-control" name="winner_toplist_day_week">
 												<?PHP
-												echo '<option value="1"'; if($addons_config['channelinfo_toplist_modus']['value']=="1") echo ' selected="selected"'; echo '>',$lang['daymonday'],'</option>';
-												echo '<option value="2"'; if($addons_config['channelinfo_toplist_modus']['value']=="2") echo ' selected="selected"'; echo '>',$lang['daytuesday'],'</option>';
-												echo '<option value="3"'; if($addons_config['channelinfo_toplist_modus']['value']=="3") echo ' selected="selected"'; echo '>',$lang['daywednesday'],'</option>';
-												echo '<option value="4"'; if($addons_config['channelinfo_toplist_modus']['value']=="4") echo ' selected="selected"'; echo '>',$lang['daythursday'],'</option>';
-												echo '<option value="5"'; if($addons_config['channelinfo_toplist_modus']['value']=="5") echo ' selected="selected"'; echo '>',$lang['dayfriday'],'</option>';
-												echo '<option value="6"'; if($addons_config['channelinfo_toplist_modus']['value']=="6") echo ' selected="selected"'; echo '>',$lang['daysaturday'],'</option>';
-												echo '<option value="6"'; if($addons_config['channelinfo_toplist_modus']['value']=="7") echo ' selected="selected"'; echo '>',$lang['daysunday'],'</option>';
+												echo '<option value="1"'; if($addons_config['winner_toplist_day_week']['value']=="1") echo ' selected="selected"'; echo '>',$lang['daymonday'],'</option>';
+												echo '<option value="2"'; if($addons_config['winner_toplist_day_week']['value']=="2") echo ' selected="selected"'; echo '>',$lang['daytuesday'],'</option>';
+												echo '<option value="3"'; if($addons_config['winner_toplist_day_week']['value']=="3") echo ' selected="selected"'; echo '>',$lang['daywednesday'],'</option>';
+												echo '<option value="4"'; if($addons_config['winner_toplist_day_week']['value']=="4") echo ' selected="selected"'; echo '>',$lang['daythursday'],'</option>';
+												echo '<option value="5"'; if($addons_config['winner_toplist_day_week']['value']=="5") echo ' selected="selected"'; echo '>',$lang['dayfriday'],'</option>';
+												echo '<option value="6"'; if($addons_config['winner_toplist_day_week']['value']=="6") echo ' selected="selected"'; echo '>',$lang['daysaturday'],'</option>';
+												echo '<option value="7"'; if($addons_config['winner_toplist_day_week']['value']=="7") echo ' selected="selected"'; echo '>',$lang['daysunday'],'</option>';
 												?>
 												</select>
 											</div>
 										</div>
-										<!-- #$addons_config['winner_toplist_time_week']['value'] Woche Zeit 0:00-23:59 -->
 										<div class="form-group">
 											<label class="col-sm-2 control-label" data-toggle="modal" data-target="#addonchtoplzz002d"><?php echo $lang['addonchtoplzz002'],' (',$lang['addonchtoplzz006'],')'; ?><i class="help-hover fas fa-question-circle"></i></label>
 											<div class="col-sm-5">
-												<input type="text" class="form-control" id="week_h" name="winner_toplist_time_week_hours" title="<?php echo $lang['addonchdescdesc31'].': '; ?>" value="<?php echo $hour_week; ?>">
+												<input type="text" class="form-control" name="winner_toplist_time_week_hours" data-time-group="week" title="<?php echo $lang['addonchdescdesc31'].': '; ?>" value="<?php echo $hour_week; ?>">
 												<script>
 												$("input[name='winner_toplist_time_week_hours']").TouchSpin({
 													min: 0,
@@ -140,7 +138,7 @@ try {
 												</script>
 											</div>
 											<div class="col-sm-5">
-												<input type="text" class="form-control" id="week_m" name="winner_toplist_time_week_minutes" title="<?php echo $lang['addonchdescdesc31'].': '; ?>" value="<?php echo $minute_week; ?>">
+												<input type="text" class="form-control" name="winner_toplist_time_week_minutes" data-time-group="week" title="<?php echo $lang['addonchdescdesc31'].': '; ?>" value="<?php echo $minute_week; ?>">
 												<script>
 												$("input[name='winner_toplist_time_week_minutes']").TouchSpin({
 													min: 0,
@@ -150,13 +148,12 @@ try {
 												});
 												</script>
 											</div>
-											<input type="hidden" id="winner_time_week" name="winner_toplist_time_week" value="12:00">
+											<input type="hidden" id="winner_time_week" name="winner_toplist_time_week" data-time-group="week" value="12:00">
 										</div>
 									</div>
 								</div>
 								<div class="panel panel-default">
 									<div class="panel-body">
-										<!-- #$addons_config['winner_toplist_day_month']['value'] Monat Tag 1-31 -->
 										<div class="form-group">
 											<label class="col-sm-2 control-label" data-toggle="modal" data-target="#addonchtoplzz003d"><?php echo $lang['addonchtoplzz001'],' (',$lang['addonchtoplzz007'],')'; ?><i class="help-hover fas fa-question-circle"></i></label>
 											<div class="col-sm-10">
@@ -171,11 +168,10 @@ try {
 												</script>
 											</div>
 										</div>
-										<!-- #$addons_config['winner_toplist_time_month']['value'] Monat Zeit 0:00-23:59 -->
 										<div class="form-group">
 											<label class="col-sm-2 control-label" data-toggle="modal" data-target="#addonchtoplzz004d"><?php echo $lang['addonchtoplzz002'],' (',$lang['addonchtoplzz007'],')'; ?><i class="help-hover fas fa-question-circle"></i></label>
 											<div class="col-sm-5">
-												<input type="text" class="form-control" id="month_h" name="winner_toplist_time_month_hours" title="<?php echo $lang['addonchdescdesc31'].': '; ?>" value="<?php echo $hour_month; ?>">
+												<input type="text" class="form-control" name="winner_toplist_time_month_hours" data-time-group="month" title="<?php echo $lang['addonchdescdesc31'].': '; ?>" value="<?php echo $hour_month; ?>">
 												<script>
 												$("input[name='winner_toplist_time_month_hours']").TouchSpin({
 													min: 0,
@@ -186,7 +182,7 @@ try {
 												</script>
 											</div>
 											<div class="col-sm-5">
-												<input type="text" class="form-control" id="month_m" name="winner_toplist_time_month_minutes" title="<?php echo $lang['addonchdescdesc31'].': '; ?>" value="<?php echo $minute_month; ?>">
+												<input type="text" class="form-control" name="winner_toplist_time_month_minutes" data-time-group="month" title="<?php echo $lang['addonchdescdesc31'].': '; ?>" value="<?php echo $minute_month; ?>">
 												<script>
 												$("input[name='winner_toplist_time_month_minutes']").TouchSpin({
 													min: 0,
@@ -196,12 +192,11 @@ try {
 												});
 												</script>
 											</div>
-											<input type="hidden" id="winner_time_month" name="winner_toplist_time_month" value="12:00">
+											<input type="hidden" id="winner_time_month" name="winner_toplist_time_month" data-time-group="month" value="12:00">
 										</div>
 									</div>
 								</div>
 								<div class="panel-body">
-									<!-- #$addons_config['winner_toplist_group_mode']['value'] Modus Servergruppe 1=ohne removen; 2=mit removen -->
 									<div class="form-group">
 										<label class="col-sm-2 control-label" data-toggle="modal" data-target="#addonchtoplzz005d"><?php echo $lang['addonchtoplzz005'],' ',$lang['wigrpt2']; ?><i class="help-hover fas fa-question-circle"></i></label>
 										<div class="col-sm-10">
@@ -215,7 +210,6 @@ try {
 											</select>
 										</div>
 									</div>
-									<!-- #$addons_config['winner_toplist_group_week']['value'] Woche Servergruppe -->
 									<div class="form-group">
 										<label class="col-sm-2 control-label" data-toggle="modal" data-target="#addonchtoplzz006d"><?php echo $lang['wigrpt2'],' (',$lang['addonchtoplzz006'],')'; ?><i class="help-hover fas fa-question-circle"></i></label>
 										<div class="col-sm-10">
@@ -235,7 +229,6 @@ try {
 											</select>
 										</div>
 									</div>
-									<!-- #$addons_config['winner_toplist_group_month']['value'] Monat Servergruppe -->
 									<div class="form-group">
 										<label class="col-sm-2 control-label" data-toggle="modal" data-target="#addonchtoplzz007d"><?php echo $lang['wigrpt2'],' (',$lang['addonchtoplzz007'],')'; ?><i class="help-hover fas fa-question-circle"></i></label>
 										<div class="col-sm-10">
@@ -415,22 +408,30 @@ try {
 
 	function pad2(n) {
 	  n = parseInt(n, 10) || 0;
-	  return (n < 10 ? '0' : '') + n;
+	  return String(n).padStart(2, '0');
 	}
 
-	function bindTimePicker(hourId, minuteId, hiddenId) {
-	  function sync() {
-		var h = pad2($('#' + hourId).val());
-		var m = pad2($('#' + minuteId).val());
-		$('#' + hiddenId).val(h + ':' + m);
-	  }
+	function bindAllTimePickers() {
+	  $('[data-time-group]').each(function () {
+		var group = $(this).data('time-group');
+		var $hour = $('input[name$="_hours"][data-time-group="' + group + '"]');
+		var $minute = $('input[name$="_minutes"][data-time-group="' + group + '"]');
+		var $hidden = $('input[type="hidden"][data-time-group="' + group + '"]');
 
-	  $('#' + hourId + ', #' + minuteId).on('change keyup', sync);
-	  sync();
+		function sync() {
+		  var h = pad2($hour.val());
+		  var m = pad2($minute.val());
+		  $hour.val(h);
+		  $minute.val(m);
+		  $hidden.val(h + ':' + m);
+		}
+
+		$hour.add($minute).on('change keyup touchspin.on.stopspin', sync);
+		sync();
+	  });
 	}
-	
-	bindTimePicker('week_h',  'week_m',  'winner_time_week');
-	bindTimePicker('month_h', 'month_m', 'winner_time_month');
+
+	bindAllTimePickers();
 	</script>
 	</body>
 	</html>
